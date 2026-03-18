@@ -17,6 +17,9 @@ class GuardDetailController extends Controller
     public function getGuardDetails($guardId, Request $request)
     {
         try {
+            if (!is_numeric($guardId)) {
+                return response()->json(['success' => false, 'message' => 'Invalid guard id'], 422);
+            }
 
             /* ================= BASIC GUARD ================= */
             $guard = DB::table('users')
@@ -37,9 +40,19 @@ class GuardDetailController extends Controller
             $siteName = $assignment->site_name ?? null; // Beat
             $compartmentName = null;
 
-            if (!empty($assignment->site_id)) {
+            if ($assignment && !empty($assignment->site_id)) {
+                $siteId = $assignment->site_id;
+                if (is_string($siteId)) {
+                    $decoded = json_decode($siteId, true);
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded) && !empty($decoded)) {
+                        $siteId = $decoded[0];
+                    } elseif (str_contains($siteId, ',')) {
+                        $siteId = explode(',', $siteId)[0];
+                    }
+                }
+
                 $compartment = DB::table('site_geofences')
-                    ->where('site_id', $assignment->site_id)
+                    ->where('site_id', $siteId)
                     ->orderBy('id')
                     ->first();
                 $compartmentName = $compartment->name ?? null;
@@ -182,17 +195,18 @@ class GuardDetailController extends Controller
                         'patrol_logs.type',
                         'patrol_logs.created_at as date',
                         'patrol_sessions.site_id',
-                        'patrol_logs.notes as remark'
+                        'patrol_logs.notes as remark',
+                        'site_details.name as site_name'
                     ])
+                    ->leftJoin('site_details', 'site_details.id', '=', 'patrol_sessions.site_id')
                     ->get()
                     ->map(function($i) {
-                         $site = DB::table('site_details')->where('id', $i->site_id)->first();
                          return [
                             'id' => $i->id,
                             'type' => ucwords(str_replace('_', ' ', $i->type)),
                             'priority' => 'Normal',
                             'status' => 'Logged',
-                            'site_name' => $site->name ?? 'NA',
+                            'site_name' => $i->site_name ?? 'NA',
                             'remark' => $i->remark,
                             'date' => Carbon::parse($i->date)->format('Y-m-d'),
                             'time' => Carbon::parse($i->date)->format('H:i:s'),
@@ -238,12 +252,26 @@ class GuardDetailController extends Controller
                 true // Skip date filter since we already applied it
             );
 
-            // Get ALL patrol sessions (no limit) - filtered by global filters
+            // Cap sessions to avoid huge payloads and long query times in modal.
             $patrolSessions = $patrolSessionsBase
                 ->orderByDesc('started_at')
-                ->get(); // Removed limit to show all patrol paths
+                ->limit(120)
+                ->get();
 
-            $patrolPaths = $patrolSessions->map(function ($p) {
+            // Preload logs for all sessions to avoid N+1 queries inside map() loop.
+            $sessionIds = $patrolSessions->pluck('id')->filter()->values();
+            $logsBySession = collect();
+            if ($sessionIds->isNotEmpty()) {
+                $logsBySession = DB::table('patrol_logs')
+                    ->whereIn('patrol_session_id', $sessionIds)
+                    ->whereNotNull('lat')
+                    ->whereNotNull('lng')
+                    ->orderBy('created_at')
+                    ->get(['patrol_session_id', 'lat', 'lng'])
+                    ->groupBy('patrol_session_id');
+            }
+
+            $patrolPaths = $patrolSessions->map(function ($p) use ($logsBySession) {
 
                 $path = null;
 
@@ -253,12 +281,7 @@ class GuardDetailController extends Controller
                 }
 
                 /* ================= 2️⃣ BUILD FROM patrol_logs ================= */ else {
-                    $logs = DB::table('patrol_logs')
-                        ->where('patrol_session_id', $p->id)
-                        ->whereNotNull('lat')
-                        ->whereNotNull('lng')
-                        ->orderBy('created_at')
-                        ->get(['lat', 'lng']);
+                    $logs = $logsBySession->get($p->id, collect());
 
                     if ($logs->count() >= 2) {
                         $path = json_encode([

@@ -10,6 +10,7 @@ use App\Http\Controllers\Traits\FilterDataTrait;
 use App\Helpers\FormatHelper;
 use App\Services\AnalyticsDataService;
 use App\Services\RoleBasedFilterService; // ✅ Add role-based filtering
+use Illuminate\Support\Facades\Cache;
 
 class ExecutiveAnalyticsController extends Controller
 {
@@ -310,7 +311,21 @@ class ExecutiveAnalyticsController extends Controller
                 $endDate = $temp;
             }
 
-            $kpis = $this->getKPIs($startDate, $endDate);
+            $cacheKey = sprintf(
+                'exec_kpis:%s:%s:%s:%s:%s:%s:%s:%s',
+                session('user')->id ?? 'guest',
+                session('user')->company_id ?? 'na',
+                $startDate->format('Y-m-d'),
+                $endDate->format('Y-m-d'),
+                (string) $request->input('range', ''),
+                (string) $request->input('beat', ''),
+                (string) $request->input('user', ''),
+                (string) $request->input('guard_search', '')
+            );
+
+            $kpis = Cache::remember($cacheKey, now()->addSeconds(45), function () use ($startDate, $endDate) {
+                return $this->getKPIs($startDate, $endDate);
+            });
 
             return response()->json([
                 'success' => true,

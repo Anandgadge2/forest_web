@@ -158,30 +158,37 @@
             }
 
             // Function to submit filters (AJAX for supported pages, form submit for others)
+            let filterSubmitDebounce = null;
             function submitFilters() {
-                // Check if we're on pages that support AJAX updates
-                const isMapsPage = window.location.pathname.includes('/patrol/maps') ||
-                    window.location.pathname.includes('/patrol/kml');
-                const isExecutivePage = window.location.pathname.includes('/analytics/executive');
-
-                if (isMapsPage) {
-                    // Show loader for AJAX requests
-                    const loader = document.querySelector('.filter-loading');
-                    if (loader) loader.style.display = 'flex';
-                    if (window.skeletonLoader) window.skeletonLoader.show();
-
-                    // Use AJAX for maps page
-                    updateMapsData();
-                } else if (isExecutivePage) {
-                    // Use AJAX for Executive Dashboard
-                    updateExecutiveDashboard();
-                } else {
-                    // Use form submit for all other pages
-                    const form = document.querySelector('.global-filter-grid');
-                    if (form) {
-                        form.submit();
-                    }
+                if (filterSubmitDebounce) {
+                    clearTimeout(filterSubmitDebounce);
                 }
+
+                filterSubmitDebounce = setTimeout(() => {
+                    // Check if we're on pages that support AJAX updates
+                    const isMapsPage = window.location.pathname.includes('/patrol/maps') ||
+                        window.location.pathname.includes('/patrol/kml');
+                    const isExecutivePage = window.location.pathname.includes('/analytics/executive');
+
+                    if (isMapsPage) {
+                        // Show loader for AJAX requests
+                        const loader = document.querySelector('.filter-loading');
+                        if (loader) loader.style.display = 'flex';
+                        if (window.skeletonLoader) window.skeletonLoader.show();
+
+                        // Use AJAX for maps page
+                        updateMapsData();
+                    } else if (isExecutivePage) {
+                        // Use AJAX for Executive Dashboard
+                        updateExecutiveDashboard();
+                    } else {
+                        // Use form submit for all other pages
+                        const form = document.querySelector('.global-filter-grid');
+                        if (form) {
+                            form.submit();
+                        }
+                    }
+                }, 250);
             }
 
             // Global abort controller for executive dashboard updates
