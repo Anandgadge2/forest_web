@@ -73,12 +73,12 @@ class AuthController extends Controller
     {
         // SuperAdmin (role_id = 1) - Can see everything
         if ($user->isSuperAdmin()) {
-            return redirect()->intended('/analytics/executive');
+            return redirect()->intended('/dashboard');
         }
 
         // Admin (role_id = 7) - Can see clients, supervisors and guards
         if ($user->isAdmin()) {
-            return redirect()->intended('/analytics/executive');
+            return redirect()->intended('/dashboard');
         }
 
         // Supervisor (role_id = 2) - Can see only guards under them

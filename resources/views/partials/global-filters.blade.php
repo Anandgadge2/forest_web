@@ -226,6 +226,12 @@
 
                 // Fetch new content
                 console.log('Fetching update from:', newUrl);
+                const requestTimeoutId = setTimeout(() => {
+                    if (dashboardAbortController && !dashboardAbortController.signal.aborted) {
+                        dashboardAbortController.abort();
+                    }
+                }, 20000);
+
                 fetch(newUrl, {
                     method: 'GET',
                     signal: dashboardAbortController.signal,
@@ -236,6 +242,7 @@
                     }
                 })
                 .then(response => {
+                    clearTimeout(requestTimeoutId);
                     console.log('Response status:', response.status);
                     
                     // Specific check: if redirected to login, force full page reload
@@ -320,6 +327,7 @@
                 .catch(error => {
                     if (error.name === 'AbortError') {
                         console.log('Request aborted');
+                        if (loader) loader.style.display = 'none';
                         return;
                     }
                     console.error('Error updating dashboard:', error);
@@ -327,6 +335,7 @@
                     form.submit();
                 })
                 .finally(() => {
+                    clearTimeout(requestTimeoutId);
                     // Restore dashboard visibility and interactivity
                     if (dashboardContent) {
                         dashboardContent.style.opacity = '1';

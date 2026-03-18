@@ -100,6 +100,37 @@ window.getCurrentFilters = function() {
     return params.toString();
 };
 
+window.fetchJsonWithTimeout = async function(url, options = {}) {
+    const timeoutMs = options.timeoutMs || 15000;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+        const response = await fetch(url, {
+            ...options,
+            signal: controller.signal,
+            credentials: options.credentials || 'same-origin',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                ...(options.headers || {})
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Request failed (${response.status})`);
+        }
+
+        return await response.json();
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            throw new Error('Request timed out. Please try again with a smaller date range.');
+        }
+        throw error;
+    } finally {
+        clearTimeout(timeoutId);
+    }
+};
+
 /**
  * Incident Tracking Functions
  */
@@ -265,8 +296,7 @@ window.showPatrolsByType = async function(type, titleLabel) {
 
     try {
         const globalFilters = window.getCurrentFilters();
-        const response = await fetch(`/api/patrols-by-type?type=${encodeURIComponent(type)}&${globalFilters}`);
-        const data = await response.json();
+        const data = await window.fetchJsonWithTimeout(`/api/patrols-by-type?type=${encodeURIComponent(type)}&${globalFilters}`);
         
         if (!data.patrols || data.patrols.length === 0) {
             body.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted small"><i class="bi bi-info-circle me-1"></i>No patrols found for this selection</td></tr>';
@@ -298,8 +328,7 @@ window.initKpiListeners = function() {
         if (!listContainer) return;
 
         listContainer.innerHTML = '<tr><td colspan="5" class="text-center py-5"><div class="spinner-border text-primary"></div></td></tr>';
-        fetch(`/api/active-guards?${window.getCurrentFilters()}`)
-            .then(r => r.json())
+        window.fetchJsonWithTimeout(`/api/active-guards?${window.getCurrentFilters()}`)
             .then(data => {
                 let html = '';
                 if (data.guards && data.guards.length > 0) {
@@ -308,6 +337,9 @@ window.initKpiListeners = function() {
                     });
                 } else html = '<tr><td colspan="5" class="text-center py-5">No records</td></tr>';
                 listContainer.innerHTML = html;
+            })
+            .catch((error) => {
+                listContainer.innerHTML = `<tr><td colspan="5" class="text-center py-5 text-danger small">${error.message}</td></tr>`;
             });
     });
 
@@ -320,8 +352,7 @@ window.initKpiListeners = function() {
         typeTable.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Loading breakdown...</td></tr>';
         sitesTable.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm text-success me-2"></div>Loading site rankings...</td></tr>';
 
-        fetch(`/api/patrol-analytics?${window.getCurrentFilters()}`)
-            .then(r => r.json())
+        window.fetchJsonWithTimeout(`/api/patrol-analytics?${window.getCurrentFilters()}`)
             .then(data => {
                 if (data.success) {
                     // Update Summary Cards
@@ -358,13 +389,16 @@ window.initKpiListeners = function() {
                     } else sitesHtml = '<tr><td colspan="3" class="text-center py-4 text-muted small">No data</td></tr>';
                     sitesTable.innerHTML = sitesHtml;
                 }
+            })
+            .catch((error) => {
+                typeTable.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-danger small">${error.message}</td></tr>`;
+                sitesTable.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-danger small">${error.message}</td></tr>`;
             });
     });
 
     // Resolution Rate Details
     document.getElementById('resolutionRateModal')?.addEventListener('show.bs.modal', function() {
-        fetch(`/api/incidents-details?${window.getCurrentFilters()}`)
-            .then(r => r.json())
+        window.fetchJsonWithTimeout(`/api/incidents-details?${window.getCurrentFilters()}`)
             .then(data => {
                 if (data.success) {
                     const stats = data.stats || {};
@@ -380,6 +414,9 @@ window.initKpiListeners = function() {
                     document.getElementById('modalResRatePending').innerText = (stats.pending || 0).toLocaleString();
                     document.getElementById('modalResRateCalculation').innerHTML = `${(stats.resolved || 0).toLocaleString()} ÷ ${(stats.total || 0).toLocaleString()} × 100 = <strong>${rate}%</strong>`;
                 }
+            })
+            .catch((error) => {
+                document.getElementById('modalResRateCalculation').innerHTML = `<span class="text-danger">${error.message}</span>`;
             });
     });
 
@@ -389,8 +426,7 @@ window.initKpiListeners = function() {
         if (!listContainer) return;
         
         listContainer.innerHTML = '<tr><td colspan="3" class="text-center py-5"><div class="spinner-border text-primary"></div></td></tr>';
-        fetch(`/api/beats-details?${window.getCurrentFilters()}`)
-            .then(r => r.json())
+        window.fetchJsonWithTimeout(`/api/beats-details?${window.getCurrentFilters()}`)
             .then(data => {
                 let html = '';
                 if (data.beats && data.beats.length > 0) {
@@ -399,6 +435,9 @@ window.initKpiListeners = function() {
                     });
                 } else html = '<tr><td colspan="3" class="text-center py-5">No records</td></tr>';
                 listContainer.innerHTML = html;
+            })
+            .catch((error) => {
+                listContainer.innerHTML = `<tr><td colspan="3" class="text-center py-5 text-danger small">${error.message}</td></tr>`;
             });
     });
 
@@ -412,8 +451,7 @@ window.initKpiListeners = function() {
 
         [gapsList, visitedList, leastVisitedList].forEach(el => el.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div></div>');
 
-        fetch(`/api/coverage-analysis?${window.getCurrentFilters()}`)
-            .then(r => r.json())
+        window.fetchJsonWithTimeout(`/api/coverage-analysis?${window.getCurrentFilters()}`)
             .then(data => {
                 if (data.success) {
                     // Summary and Charts updates here if needed (omitted for brevity, assume they handle themselves)
@@ -442,6 +480,11 @@ window.initKpiListeners = function() {
                         </div>
                     `).join('') || '<div class="text-muted text-center py-3">No data</div>';
                 }
+            })
+            .catch((error) => {
+                [gapsList, visitedList, leastVisitedList].forEach(el => {
+                    el.innerHTML = `<div class="text-center py-3 text-danger small">${error.message}</div>`;
+                });
             });
     });
 
@@ -451,8 +494,7 @@ window.initKpiListeners = function() {
         if (!list) return;
 
         list.innerHTML = '<tr><td colspan="4" class="text-center py-5"><div class="spinner-border text-info"></div></td></tr>';
-        fetch(`/api/distance-details?${window.getCurrentFilters()}`)
-            .then(r => r.json())
+        window.fetchJsonWithTimeout(`/api/distance-details?${window.getCurrentFilters()}`)
             .then(data => {
                 let html = '';
                 if (data.breakdown && data.breakdown.length > 0) {
@@ -461,6 +503,9 @@ window.initKpiListeners = function() {
                     });
                 } else html = '<tr><td colspan="4" class="text-center py-5 text-muted">No records</td></tr>';
                 list.innerHTML = html;
+            })
+            .catch((error) => {
+                list.innerHTML = `<tr><td colspan="4" class="text-center py-5 text-danger small">${error.message}</td></tr>`;
             });
     });
 
@@ -470,8 +515,7 @@ window.initKpiListeners = function() {
         if (!list) return;
 
         list.innerHTML = '<tr><td colspan="4" class="text-center py-5"><div class="spinner-border text-warning"></div></td></tr>';
-        fetch(`/api/attendance-details?${window.getCurrentFilters()}`)
-            .then(r => r.json())
+        window.fetchJsonWithTimeout(`/api/attendance-details?${window.getCurrentFilters()}`)
             .then(data => {
                 let html = '';
                 const days = data.summary?.days_in_range || 1;
@@ -482,6 +526,9 @@ window.initKpiListeners = function() {
                     });
                 } else html = '<tr><td colspan="4" class="text-center py-5 text-muted">No records</td></tr>';
                 list.innerHTML = html;
+            })
+            .catch((error) => {
+                list.innerHTML = `<tr><td colspan="4" class="text-center py-5 text-danger small">${error.message}</td></tr>`;
             });
     });
 };
