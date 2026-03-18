@@ -52,10 +52,6 @@
 </div>
 
 
-@php
-    // Redundant modals and scripts removed - now in dashboard-assets.blade.php
-@endphp
-@push('scripts')
 <script>
 window.patrolAnalyticsData = {
     typeLabels: {!! json_encode($patrolAnalytics['patrolByType']->pluck('type')->toArray()) !!},
@@ -128,5 +124,3 @@ window.showPatrolsByType = async function(type, titleLabel) {
     }
 };
 </script>
-@endpush
-

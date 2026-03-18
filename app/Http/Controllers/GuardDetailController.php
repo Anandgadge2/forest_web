@@ -65,7 +65,8 @@ class GuardDetailController extends Controller
                 $endDate = Carbon::now()->toDateString();
             }
 
-            $companyId = session('user')->company_id ?? 56;
+            $user = session('user');
+            $companyId = is_object($user) ? ($user->company_id ?? 56) : ($user['company_id'] ?? 56);
 
             /* ================= ATTENDANCE (FILTERED) ================= */
 
@@ -307,9 +308,22 @@ class GuardDetailController extends Controller
             ->values();
 
 
+            /* ================= GEOFENCES (COMPARTMENTS) ================= */
+            $geofences = DB::table('site_geofences')
+                ->where('site_geofences.company_id', $companyId)
+                ->leftJoin('site_details', 'site_details.id', '=', 'site_geofences.site_id')
+                ->whereNull('site_geofences.deleted_at')
+                ->select(
+                    'site_geofences.*',
+                    'site_details.name as site_name',
+                    'site_details.client_name as range_name'
+                )
+                ->get();
+
             /* ================= RESPONSE ================= */
             return response()->json([
                 'success' => true,
+                'geofences' => $geofences,
                 'guard' => [
                     'id' => $guard->id,
                     'name' => FormatHelper::formatName($guard->name),
@@ -350,7 +364,7 @@ class GuardDetailController extends Controller
 
         } catch (\Throwable $e) {
             Log::error('Guard Detail Error', ['exception' => $e]);
-            return response()->json(['success' => false], 500);
+            return response()->json(['success' => false, 'error' => $e->getMessage(), 'line' => $e->getLine(), 'file' => $e->getFile()], 500);
         }
     }
 }

@@ -115,7 +115,7 @@ document.addEventListener('click', function (e) {
             if (!res.success || !res.guard) throw 'Invalid response';
             content.innerHTML = renderGuard(res.guard, startDate, endDate);
             setTimeout(() => {
-                initGuardMap(res.guard.patrol_paths || []);
+                initGuardMap(res.guard.patrol_paths || [], res.geofences || []);
                 setTimeout(() => {
                     guardMapInstance.invalidateSize(); // ⭐ CRITICAL
                     
@@ -250,6 +250,7 @@ function renderGuard(g, startDate = null, endDate = null) {
         <div class="card-header bg-info text-white fw-semibold d-flex justify-content-between align-items-center">
             <span>Patrol Paths (All Sessions - Filtered by Global Filters)</span>
             <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-sm btn-outline-light" id="toggleCompartmentsBtn">Hide Compartments</button>
                 <span class="badge bg-light text-dark">${(g.patrol_paths || []).length} paths</span>
                 <button class="btn btn-sm btn-light" id="guardMapFullscreenBtn" title="Toggle Fullscreen">
                     <i class="bi bi-arrows-fullscreen"></i>
@@ -372,7 +373,7 @@ function normalizePathGeoJson(raw) {
 
 
 /* ================= MAP ================= */
-function initGuardMap(paths) {
+function initGuardMap(paths, geofences = []) {
     const el = document.getElementById('guardPatrolMap');
     if (!el) return;
 
@@ -403,6 +404,62 @@ function initGuardMap(paths) {
         .addTo(guardMapInstance);
 
     const focusLayers = [];
+    const geofenceGroup = L.featureGroup().addTo(guardMapInstance);
+    let geofencesVisible = true;
+
+    /* ================= GEOFENCES (COMPARTMENTS) ================= */
+    geofences.forEach(g => {
+        let layer = null;
+        const style = {
+            color: '#6a1b9a',
+            fillColor: '#6a1b9a',
+            fillOpacity: 0.07,
+            weight: 2,
+            dashArray: '5, 5'
+        };
+
+        if (g.type === 'Circle' && g.lat && g.lng) {
+            layer = L.circle([g.lat, g.lng], {
+                radius: parseFloat(g.radius || 500),
+                ...style
+            });
+        } else if (g.poly_lat_lng) {
+            try {
+                const coords = JSON.parse(g.poly_lat_lng);
+                if (Array.isArray(coords) && coords.length > 0) {
+                    layer = L.polygon(coords, style);
+                }
+            } catch (e) {
+                console.error('Error parsing geofence coords', e);
+            }
+        }
+
+        if (layer) {
+            layer.bindTooltip(`
+                <div class="small fw-bold">Compartment: ${g.name}</div>
+                <div class="extra-small">${g.site_name || 'N/A'}</div>
+            `, { sticky: true });
+            layer.addTo(geofenceGroup);
+            focusLayers.push(layer);
+        }
+    });
+
+    // Toggle Button Logic
+    const toggleBtn = document.getElementById('toggleCompartmentsBtn');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function() {
+            if (geofencesVisible) {
+                guardMapInstance.removeLayer(geofenceGroup);
+                this.innerText = 'Show Compartments';
+                this.classList.replace('btn-outline-light', 'btn-light');
+            } else {
+                guardMapInstance.addLayer(geofenceGroup);
+                this.innerText = 'Hide Compartments';
+                this.classList.replace('btn-light', 'btn-outline-light');
+            }
+            geofencesVisible = !geofencesVisible;
+        });
+    }
 
     const colors = ['#28a745', '#e91e63', '#9c27b0', '#2196f3', '#00bcd4', '#4caf50', '#ff9800', '#f44336', '#3cb44b', '#f58231'];
 

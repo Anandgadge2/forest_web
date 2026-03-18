@@ -67,31 +67,33 @@
                         </thead>
                         <tbody class="border-top-0">
                             @php $incidentsSites = isset($incidentTracking['incidentsBySite']) ? $incidentTracking['incidentsBySite'] : []; @endphp
-                            @forelse($incidentsSites as $site)
-                                <tr onclick="window.showIncidentsByType('all', 'Incidents at {{ addslashes($site->site_name) }}', {site_name: '{{ addslashes($site->site_name) }}'})"
-                                    style="cursor:pointer" class="hover-bg-light border-bottom">
-                                    <td class="text-center py-3 text-muted">{{ $loop->iteration }}</td>
-                                    <td class="fw-bold text-muted py-3">{{ $site->site_name }}</td>
-                                    <td class="text-center py-3 fw-bold text-muted">{{ $site->incident_count }}</td>
-                                    <td class="text-center py-3">
-                                        <div class="d-inline-flex align-items-center justify-content-center bg-success text-white rounded-circle shadow-sm"
-                                            style="width: 24px; height: 24px; font-size: 0.75rem; font-weight: bold;">
-                                            {{ $site->resolved_count }}
-                                        </div>
-                                    </td>
-                                    <td class="text-center py-3">
-                                        <div class="d-inline-flex align-items-center justify-content-center bg-warning text-white rounded-circle shadow-sm"
-                                            style="width: 24px; height: 24px; font-size: 0.75rem; font-weight: bold;">
-                                            {{ $site->pending_count }}
-                                        </div>
-                                    </td>
-                                    <td class="text-center py-3 fw-bold text-muted">{{ $site->resolution_percentage }}%</td>
-                                </tr>
-                            @empty
+                            @if(count($incidentsSites) > 0)
+                                @foreach($incidentsSites as $site)
+                                    <tr onclick="window.showIncidentsByType('all', 'Incidents at {{ addslashes($site->site_name) }}', {site_name: '{{ addslashes($site->site_name) }}'})"
+                                        style="cursor:pointer" class="hover-bg-light border-bottom">
+                                        <td class="text-center py-3 text-muted">{{ $loop->iteration }}</td>
+                                        <td class="fw-bold text-muted py-3">{{ $site->site_name }}</td>
+                                        <td class="text-center py-3 fw-bold text-muted">{{ $site->incident_count }}</td>
+                                        <td class="text-center py-3">
+                                            <div class="d-inline-flex align-items-center justify-content-center bg-success text-white rounded-circle shadow-sm"
+                                                style="width: 24px; height: 24px; font-size: 0.75rem; font-weight: bold;">
+                                                {{ $site->resolved_count }}
+                                            </div>
+                                        </td>
+                                        <td class="text-center py-3">
+                                            <div class="d-inline-flex align-items-center justify-content-center bg-warning text-white rounded-circle shadow-sm"
+                                                style="width: 24px; height: 24px; font-size: 0.75rem; font-weight: bold;">
+                                                {{ $site->pending_count }}
+                                            </div>
+                                        </td>
+                                        <td class="text-center py-3 fw-bold text-muted">{{ $site->resolution_percentage }}%</td>
+                                    </tr>
+                                @endforeach
+                            @else
                                 <tr>
                                     <td colspan="6" class="text-center py-4 text-muted small">No incident records found</td>
                                 </tr>
-                            @endforelse
+                            @endif
                         </tbody>
                     </table>
                 </div>

@@ -227,8 +227,11 @@ class ExecutiveAnalyticsController extends Controller
             );
 
             if ($request->ajax()) {
-                return view('analytics.partials.executive-dashboard-content', $data);
+                $content = view('analytics.partials.executive-dashboard-content', $data)->render();
+                // Wrap in #dashboardContent so the AJAX JS handler can find and update it properly
+                return response('<div class="container-fluid" id="dashboardContent">' . $content . '</div>');
             }
+
 
             return view('analytics.executive-dashboard', $data);
         } catch (\Exception $e) {

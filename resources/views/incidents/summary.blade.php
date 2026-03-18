@@ -4,13 +4,13 @@
 
 @php
     function severityBadge($s) {
-        return match($s) {
+        $map = [
             5 => 'danger',
             4 => 'warning',
             3 => 'primary',
             2 => 'success',
-            default => 'secondary'
-        };
+        ];
+        return $map[$s] ?? 'secondary';
     }
 @endphp
 
@@ -22,23 +22,26 @@
 
 {{-- ================= TOP KPIs ================= --}}
 <div class="row g-3 mb-4">
-    @foreach([
-        ['total_incidents', 'Total Incidents', $kpis['total_incidents'], 'bi-exclamation-triangle-fill', 'text-danger', 'rgba(220, 53, 69, 0.1)'],
-        ['animal_sighting', 'Animal Sightings', $kpis['animal_sightings'], 'bi-eye-fill', 'text-success', 'rgba(25, 135, 84, 0.1)'],
-        ['human_impact', 'Human Impact', $kpis['human_impact'], 'bi-people-fill', 'text-warning', 'rgba(255, 193, 7, 0.1)'],
-        ['water_source', 'Water Sources', $kpis['water_sources'], 'bi-droplet-fill', 'text-info', 'rgba(13, 202, 240, 0.1)'],
-        ['animal_mortality', 'Mortality', $kpis['mortality'], 'bi-heartbreak-fill', 'text-secondary', 'rgba(108, 117, 125, 0.1)']
-    ] as [$key, $label, $value, $icon, $textClass, $bgClass])
+    @php
+        $kpiItems = [
+            ['total_incidents', 'Total Incidents', $kpis['total_incidents'], 'bi-exclamation-triangle-fill', 'text-danger', 'rgba(220, 53, 69, 0.1)'],
+            ['animal_sighting', 'Animal Sightings', $kpis['animal_sightings'], 'bi-eye-fill', 'text-success', 'rgba(25, 135, 84, 0.1)'],
+            ['human_impact', 'Human Impact', $kpis['human_impact'], 'bi-people-fill', 'text-warning', 'rgba(255, 193, 7, 0.1)'],
+            ['water_source', 'Water Sources', $kpis['water_sources'], 'bi-droplet-fill', 'text-info', 'rgba(13, 202, 240, 0.1)'],
+            ['animal_mortality', 'Mortality', $kpis['mortality'], 'bi-heartbreak-fill', 'text-secondary', 'rgba(108, 117, 125, 0.1)']
+        ];
+    @endphp
+    @foreach($kpiItems as $item)
     <div class="col-md">
-        <div class="card border-0 shadow-sm h-100 kpi-card clickable" onclick="showIncidentsByType('{{ $key }}', '{{ $label }}')" style="cursor: pointer; background: white !important;">
+        <div class="card border-0 shadow-sm h-100 kpi-card clickable" onclick="showIncidentsByType('{{ $item[0] }}', '{{ $item[1] }}')" style="cursor: pointer; background: white !important;">
             <div class="card-body p-3">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h6 class="text-muted text-uppercase small fw-bold mb-1">{{ $label }}</h6>
-                        <h3 class="mb-0 fw-bold text-dark">{{ number_format($value) }}</h3>
+                        <h6 class="text-muted text-uppercase small fw-bold mb-1">{{ $item[1] }}</h6>
+                        <h3 class="mb-0 fw-bold text-dark">{{ number_format($item[2]) }}</h3>
                     </div>
-                    <div class="rounded-circle d-flex align-items-center justify-content-center kpi-icon-wrapper" style="width: 40px; height: 40px; background: {{ $bgClass }}; color: inherit;">
-                        <i class="bi {{ $icon }} {{ $textClass }} fs-5"></i>
+                    <div class="rounded-circle d-flex align-items-center justify-content-center kpi-icon-wrapper" style="width: 40px; height: 40px; background: {{ $item[5] }}; color: inherit;">
+                        <i class="bi {{ $item[3] }} {{ $item[4] }} fs-5"></i>
                     </div>
                 </div>
             </div>
@@ -69,35 +72,37 @@
                 </tr>
                 </thead>
                 <tbody>
-                @forelse($incidents as $i)
-                    <tr onclick="if(!event.target.closest('.guard-name-link')) openIncidentDetail({{ $i->id }})" style="cursor:pointer">
-                        <td class="text-center" style="background: #fff;">{{ $loop->iteration + ($incidents->currentPage() - 1) * $incidents->perPage() }}</td>
-                        <td><span class="badge bg-secondary">{{ ucwords(str_replace('_', ' ', $i->type)) }}</span></td>
-                        <td class="text-center">
-                            <span class="badge bg-{{ severityBadge($i->severity) }}">
-                                {{ $i->severity }}
-                            </span>
-                        </td>
-                        <td>
-                            @if(!empty($i->guard_id))
-                                <a href="#" class="guard-name-link user-name text-decoration-none" data-guard-id="{{ $i->guard_id }}">
-                                    {{ \App\Helpers\FormatHelper::formatName($i->guard) }}
-                                </a>
-                            @else
-                                {{ $i->guard ?? '—' }}
-                            @endif
-                        </td>
-                        <td>{{ $i->range_name ?? $i->range_id ?? 'NA' }}</td>
-                        <td>{{ $i->beat_name ?? $i->beat_id ?? 'NA' }}</td>
-                        <!-- <td class="fw-semibold">{{ $i->compartment ?? '—' }}</td> -->
-                        <td>{{ $i->session ?? 'NA' }}</td>
-                        <td class="text-center">{{ \Carbon\Carbon::parse($i->created_at)->format('d M Y') }}<br><small class="text-muted">{{ \Carbon\Carbon::parse($i->created_at)->format('h:i A') }}</small></td>
-                    </tr>
-                @empty
+                @if(isset($incidents) && count($incidents) > 0)
+                    @foreach($incidents as $i)
+                        <tr onclick="if(!event.target.closest('.guard-name-link')) openIncidentDetail({{ $i->id }})" style="cursor:pointer">
+                            <td class="text-center" style="background: #fff;">{{ $loop->iteration + ($incidents->currentPage() - 1) * $incidents->perPage() }}</td>
+                            <td><span class="badge bg-secondary">{{ ucwords(str_replace('_', ' ', $i->type)) }}</span></td>
+                            <td class="text-center">
+                                <span class="badge bg-{{ severityBadge($i->severity) }}">
+                                    {{ $i->severity }}
+                                </span>
+                            </td>
+                            <td>
+                                @if(!empty($i->guard_id))
+                                    <a href="#" class="guard-name-link user-name text-decoration-none" data-guard-id="{{ $i->guard_id }}">
+                                        {{ \App\Helpers\FormatHelper::formatName($i->guard) }}
+                                    </a>
+                                @else
+                                    {{ $i->guard ?? '—' }}
+                                @endif
+                            </td>
+                            <td>{{ $i->range_name ?? $i->range_id ?? 'NA' }}</td>
+                            <td>{{ $i->beat_name ?? $i->beat_id ?? 'NA' }}</td>
+                            <!-- <td class="fw-semibold">{{ $i->compartment ?? '—' }}</td> -->
+                            <td>{{ $i->session ?? 'NA' }}</td>
+                            <td class="text-center">{{ \Carbon\Carbon::parse($i->created_at)->format('d M Y') }}<br><small class="text-muted">{{ \Carbon\Carbon::parse($i->created_at)->format('h:i A') }}</small></td>
+                        </tr>
+                    @endforeach
+                @else
                     <tr>
                         <td colspan="9" class="text-center text-muted py-4">No incidents found for the selected criteria</td>
                     </tr>
-                @endforelse
+                @endif
                 </tbody>
             </table>
         </div>

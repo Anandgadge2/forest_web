@@ -311,6 +311,78 @@ window.initKpiListeners = function() {
             });
     });
 
+    // Patrol Analytics Overview
+    document.getElementById('patrolAnalyticsModal')?.addEventListener('show.bs.modal', function() {
+        const typeTable = document.getElementById('modalPatrolTypeTable');
+        const sitesTable = document.getElementById('modalTopSitesTable');
+        if (!typeTable || !sitesTable) return;
+
+        typeTable.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Loading breakdown...</td></tr>';
+        sitesTable.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm text-success me-2"></div>Loading site rankings...</td></tr>';
+
+        fetch(`/api/patrol-analytics?${window.getCurrentFilters()}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    // Update Summary Cards
+                    document.getElementById('modalTotalPatrols').innerText = data.summary.totalPatrols.toLocaleString();
+                    document.getElementById('modalCompletedPatrols').innerText = data.summary.completedPatrols.toLocaleString();
+                    document.getElementById('modalOngoingPatrols').innerText = data.summary.ongoingPatrols.toLocaleString();
+                    document.getElementById('modalTotalDistance').innerText = data.summary.totalDistance.toLocaleString() + ' km';
+                    
+                    // Update Progress Bar
+                    document.getElementById('modalCompletionRateBadge').innerText = data.summary.completionRate + '%';
+                    const progressBar = document.getElementById('modalCompletionProgressBar');
+                    progressBar.style.width = data.summary.completionRate + '%';
+                    progressBar.setAttribute('aria-valuenow', data.summary.completionRate);
+
+                    // Day/Night
+                    document.getElementById('modalDayPatrols').innerText = (data.dayNight?.day || 0).toLocaleString();
+                    document.getElementById('modalNightPatrols').innerText = (data.dayNight?.night || 0).toLocaleString();
+
+                    // Type Table
+                    let typeHtml = '';
+                    if (data.breakdown && data.breakdown.length > 0) {
+                        data.breakdown.forEach(item => {
+                            typeHtml += `<tr><td class="ps-3 py-2 fw-bold text-dark">${item.type}</td><td class="text-center py-2"><span class="badge bg-primary-subtle text-primary rounded-pill">${item.count}</span></td><td class="text-end pe-3 py-2 text-muted fw-bold">${parseFloat(item.distance || 0).toFixed(2)} km</td></tr>`;
+                        });
+                    } else typeHtml = '<tr><td colspan="3" class="text-center py-4 text-muted small">No data</td></tr>';
+                    typeTable.innerHTML = typeHtml;
+
+                    // Sites Table
+                    let sitesHtml = '';
+                    if (data.topSites && data.topSites.length > 0) {
+                        data.topSites.forEach((item, i) => {
+                            sitesHtml += `<tr><td class="ps-3 text-muted py-2">${i+1}</td><td class="py-2 text-dark fw-bold">${item.site_name}</td><td class="text-end pe-3 py-2 text-success fw-bold">${parseFloat(item.total_distance_km || 0).toFixed(2)} km</td></tr>`;
+                        });
+                    } else sitesHtml = '<tr><td colspan="3" class="text-center py-4 text-muted small">No data</td></tr>';
+                    sitesTable.innerHTML = sitesHtml;
+                }
+            });
+    });
+
+    // Resolution Rate Details
+    document.getElementById('resolutionRateModal')?.addEventListener('show.bs.modal', function() {
+        fetch(`/api/incidents-details?${window.getCurrentFilters()}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const stats = data.stats || {};
+                    const rate = stats.resolutionRate || 0;
+                    
+                    document.getElementById('modalResRateTitle').innerText = rate + '%';
+                    const progressBar = document.getElementById('modalResRateProgressBar');
+                    progressBar.style.width = rate + '%';
+                    progressBar.innerText = rate + '%';
+                    
+                    document.getElementById('modalResRateTotal').innerText = (stats.total || 0).toLocaleString();
+                    document.getElementById('modalResRateResolved').innerText = (stats.resolved || 0).toLocaleString();
+                    document.getElementById('modalResRatePending').innerText = (stats.pending || 0).toLocaleString();
+                    document.getElementById('modalResRateCalculation').innerHTML = `${(stats.resolved || 0).toLocaleString()} ÷ ${(stats.total || 0).toLocaleString()} × 100 = <strong>${rate}%</strong>`;
+                }
+            });
+    });
+
     // Total Beats
     document.getElementById('totalBeatsModal')?.addEventListener('show.bs.modal', function() {
         const listContainer = document.getElementById('totalBeatsList');

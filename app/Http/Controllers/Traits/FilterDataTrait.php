@@ -118,7 +118,7 @@ trait FilterDataTrait
         $user = session('user');
 
         // Fallback to company_id 56 for testing if session user not available
-        $companyId = ($user && isset($user->company_id)) ? $user->company_id : 56;
+        $companyId = is_object($user) ? ($user->company_id ?? 56) : ($user['company_id'] ?? 56);
         // Get accessible IDs based on role
         $accessibleClientIds = RoleBasedFilterService::getAccessibleClientIds();
         $accessibleSiteIds = RoleBasedFilterService::getAccessibleSiteIds();
@@ -264,7 +264,7 @@ trait FilterDataTrait
         }
 
         $user = session('user');
-        $companyId = ($user && isset($user->company_id)) ? $user->company_id : 56;
+        $companyId = is_object($user) ? ($user->company_id ?? 56) : ($user['company_id'] ?? 56);
 
         // Get accessible user IDs based on role
         $accessibleUserIds = RoleBasedFilterService::getAccessibleUserIds();
@@ -290,7 +290,7 @@ trait FilterDataTrait
     public function getBeatsForRange(int $rangeId): array
     {
         $user = session('user');
-        $companyId = ($user && isset($user->company_id)) ? $user->company_id : 56;
+        $companyId = is_object($user) ? ($user->company_id ?? 56) : ($user['company_id'] ?? 56);
 
         // Get accessible site IDs based on role
         $accessibleSiteIds = RoleBasedFilterService::getAccessibleSiteIds();
@@ -316,7 +316,7 @@ trait FilterDataTrait
     public function getUsersForFilters(?int $rangeId = null, ?int $beatId = null): array
     {
         $user = session('user');
-        $companyId = ($user && isset($user->company_id)) ? $user->company_id : 56;
+        $companyId = is_object($user) ? ($user->company_id ?? 56) : ($user['company_id'] ?? 56);
 
         // Get accessible user IDs based on role
         $accessibleUserIds = RoleBasedFilterService::getAccessibleUserIds();

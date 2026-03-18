@@ -1,3 +1,9 @@
+{{-- 
+    Executive Dashboard Content Partial
+    This partial is returned for AJAX calls when filters change.
+    Modals and scripts are NOT included here - they are loaded once in executive-dashboard.blade.php
+--}}
+
 {{-- Key Performance Indicators --}}
 @include('analytics.partials.kpi-cards', ['kpis' => $kpis, 'coverageAnalysis' => $coverageAnalysis])
 
@@ -23,6 +29,3 @@
         Incidents</small>
 </div>
 @include('analytics.partials.incident-tracking', ['incidentTracking' => $incidentTracking])
-
-{{-- Consolidated Dashboard Assets (Modals & Scripts) --}}
-@include('analytics.partials.dashboard-assets')
