@@ -58,7 +58,13 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
-            'options' => extension_loaded('pdo_mysql') && env('MYSQL_ATTR_SSL_CA') ? array_filter([
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                defined('PDO::ATTR_TIMEOUT') ? \PDO::ATTR_TIMEOUT : 2 => env('DB_PDO_TIMEOUT', 10),
+                defined('PDO::MYSQL_ATTR_READ_TIMEOUT') ? \PDO::MYSQL_ATTR_READ_TIMEOUT : 11 => env('DB_READ_TIMEOUT', 30),
+                defined('PDO::MYSQL_ATTR_INIT_COMMAND') ? \PDO::MYSQL_ATTR_INIT_COMMAND : 1002 => sprintf(
+                    'SET SESSION MAX_EXECUTION_TIME=%d',
+                    (int) env('DB_MAX_EXECUTION_TIME_MS', 25000)
+                ),
                 defined('PDO::MYSQL_ATTR_SSL_CA') ? \PDO::MYSQL_ATTR_SSL_CA : 1009 => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
         ],
@@ -79,6 +85,12 @@ return [
             'strict' => true,
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
+                (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_TIMEOUT : \PDO::ATTR_TIMEOUT) => env('DB_PDO_TIMEOUT', 10),
+                (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_READ_TIMEOUT : \PDO::MYSQL_ATTR_READ_TIMEOUT) => env('DB_READ_TIMEOUT', 30),
+                (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_INIT_COMMAND : \PDO::MYSQL_ATTR_INIT_COMMAND) => sprintf(
+                    'SET SESSION MAX_EXECUTION_TIME=%d',
+                    (int) env('DB_MAX_EXECUTION_TIME_MS', 25000)
+                ),
                 (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
         ],

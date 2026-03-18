@@ -82,47 +82,36 @@ class ExecutiveAnalyticsController extends Controller
                 $filterData = ['ranges' => collect(), 'beats' => collect(), 'users' => collect()];
             }
 
-            // Quick data check - see if there's ANY data in the database
-            try {
-                $user = session('user');
-                $companyId = ($user && isset($user->company_id)) ? $user->company_id : 56;
+            // Quick diagnostics are restricted to debug mode to avoid expensive production counts.
+            if (config('app.debug') && !$request->ajax()) {
+                try {
+                    $user = session('user');
+                    $companyId = ($user && isset($user->company_id)) ? $user->company_id : 56;
 
-                $totalUsersInDb = DB::table('users')->where('company_id', $companyId)->count();
-                $totalSitesInDb = DB::table('site_details')->where('company_id', $companyId)->count();
-                $totalPatrolsInDb = DB::table('patrol_sessions')->where('company_id', $companyId)->count();
-                $totalAttendanceInDb = DB::table('attendance')->where('company_id', $companyId)->count();
+                    $hasPatrolsInRange = DB::table('patrol_sessions')
+                        ->where('company_id', $companyId)
+                        ->whereBetween('started_at', [
+                            $startDate->format('Y-m-d 00:00:00'),
+                            $endDate->format('Y-m-d 23:59:59')
+                        ])
+                        ->exists();
 
-                \Log::info('Database Data Check', [
-                    'company_id' => $companyId,
-                    'total_users' => $totalUsersInDb,
-                    'total_sites' => $totalSitesInDb,
-                    'total_patrols' => $totalPatrolsInDb,
-                    'total_attendance' => $totalAttendanceInDb,
-                    'date_range_being_used' => $startDate->format('Y-m-d') . ' to ' . $endDate->format('Y-m-d')
-                ]);
-                // Check if there's data in the date range
-                $patrolsInRange = DB::table('patrol_sessions')
-                    ->where('company_id', $companyId)
-                    ->whereBetween('started_at', [
-                        $startDate->format('Y-m-d 00:00:00'),
-                        $endDate->format('Y-m-d 23:59:59')
-                    ])
-                    ->count();
+                    $hasAttendanceInRange = DB::table('attendance')
+                        ->where('company_id', $companyId)
+                        ->whereBetween('dateFormat', [
+                            $startDate->format('Y-m-d'),
+                            $endDate->format('Y-m-d')
+                        ])
+                        ->exists();
 
-                $attendanceInRange = DB::table('attendance')
-                    ->where('company_id', $companyId)
-                    ->whereBetween('dateFormat', [
-                        $startDate->format('Y-m-d'),
-                        $endDate->format('Y-m-d')
-                    ])
-                    ->count();
-
-                \Log::info('Data in Date Range', [
-                    'patrols_in_range' => $patrolsInRange,
-                    'attendance_in_range' => $attendanceInRange
-                ]);
-            } catch (\Exception $e) {
-                \Log::error('Data Check Error: ' . $e->getMessage());
+                    \Log::info('Executive Dashboard Debug Data Check', [
+                        'company_id' => $companyId,
+                        'patrols_in_range_exists' => $hasPatrolsInRange,
+                        'attendance_in_range_exists' => $hasAttendanceInRange,
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error('Data Check Error: ' . $e->getMessage());
+                }
             }
 
             // Get KPIs with error handling
@@ -1488,6 +1477,12 @@ class ExecutiveAnalyticsController extends Controller
 
             return response()->json([
                 'success' => true,
+                'stats' => [
+                    'total' => $total,
+                    'pending' => $pending,
+                    'resolved' => $resolved,
+                    'resolutionRate' => $rate,
+                ],
                 'summary' => [
                     'total' => $total,
                     'pending' => $pending,
